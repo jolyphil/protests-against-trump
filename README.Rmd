@@ -1,24 +1,29 @@
-Protests against Trump
-================
-Philippe Joly
-2025-07-06
+---
+title: "Protests against Trump"
+author: "Philippe Joly"
+date: "`r Sys.Date()`"
+output: github_document
+---
 
-This project uses data from the Crowd Counting Consortium (CCC) to
-analyze protests against Trump in 2025.
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
 
-``` r
+This project uses data from the Crowd Counting Consortium (CCC) to analyze protests against Trump in 2025.
+
+```{r load-libs}
 library(dplyr)
 library(ggplot2)
 library(ggrepel)
 ```
 
-``` r
+```{r load-data}
 ccc <- readRDS("data/ccc_states_merged.rds")
 ```
 
 ## Support for Trump
 
-``` r
+```{r trump-support}
 ccc |> 
   filter(!is.na(pct_trump), !is.na(n_part_pop), state != "DC") |> 
   ggplot(aes(x = pct_trump, y = n_part_pop)) +
@@ -30,4 +35,3 @@ ccc |>
   theme_minimal()
 ```
 
-![](README_files/figure-gfm/trump-support-1.png)<!-- -->
