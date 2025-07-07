@@ -1,37 +1,175 @@
 ---
-title: "Protests against Trump"
+title: "Protests against Trump, January 1st, 2025 to May 31st, 2025"
 author: "Philippe Joly"
 date: "`r Sys.Date()`"
 output: github_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 ```
 
 This project uses data from the Crowd Counting Consortium (CCC) to analyze protests against Trump in 2025.
+
+  * The outcome variable is the number of participants per 1,000 inhabitants from January 1st, 2025 to May 31st, 2025. 
 
 ```{r load-libs}
 library(dplyr)
 library(ggplot2)
 library(ggrepel)
+library(modelsummary)
 ```
 
 ```{r load-data}
-ccc <- readRDS("data/ccc_states_merged.rds")
+ccc <- readRDS("data/ccc_states_merged.rds") |> 
+  filter(!(state %in% c("DC", "PR")))
 ```
 
-## Support for Trump
+## Bivariate Relationships
+
+### Support for Trump (%), 2024 presidential election
 
 ```{r trump-support}
 ccc |> 
   filter(!is.na(pct_trump), !is.na(n_part_pop), state != "DC") |> 
   ggplot(aes(x = pct_trump, y = n_part_pop)) +
   geom_point() +
-  geom_smooth(method = "lm", formula = "y ~ x") + 
+  geom_smooth(
+    method = "glm",
+    method.args = list(family = "poisson"),
+    formula = "y ~ x"
+  ) +
   geom_text_repel(aes(label = state)) +
   labs(x = "Support for Trump (%), 2024 presidential election",
        y = "Number of participants per thousand inhabitants") +
   theme_minimal()
 ```
 
+### Median Annual Household Income
+
+```{r income}
+ccc |> 
+  filter(!is.na(income), !is.na(n_part_pop), state != "DC") |> 
+  ggplot(aes(x = income, y = n_part_pop)) +
+  geom_point() +
+  geom_smooth(
+    method = "glm",
+    method.args = list(family = "poisson"),
+    formula = "y ~ x"
+  ) +
+  geom_text_repel(aes(label = state)) +
+  labs(x = "Median annual household income (in 1,000$)",
+       y = "Number of participants per thousand inhabitants") +
+  theme_minimal()
+```
+
+### Percentage of Black Residents
+
+```{r black}
+ccc |> 
+  filter(!is.na(black), !is.na(n_part_pop), state != "DC") |> 
+  ggplot(aes(x = black, y = n_part_pop)) +
+  geom_point() +
+  geom_smooth(
+    method = "glm",
+    method.args = list(family = "poisson"),
+    formula = "y ~ x"
+  ) +
+  geom_text_repel(aes(label = state)) +
+  labs(x = "Percentage of Black Residents",
+       y = "Number of participants per thousand inhabitants") +
+  theme_minimal()
+```
+
+### Percentage of Hispanic Residents
+
+```{r hispanic}
+ccc |> 
+  filter(!is.na(hispanic), !is.na(n_part_pop), state != "DC") |> 
+  ggplot(aes(x = hispanic, y = n_part_pop)) +
+  geom_point() +
+  geom_smooth(
+    method = "glm",
+    method.args = list(family = "poisson"),
+    formula = "y ~ x"
+  ) +
+  geom_text_repel(aes(label = state)) +
+  labs(x = "Percentage of Hispanic Residents",
+       y = "Number of participants per thousand inhabitants") +
+  theme_minimal()
+```
+
+## Percentage of Noncitizen Residents
+
+```{r non-citizens}
+ccc |> 
+  filter(!is.na(pct_non_citizens), !is.na(n_part_pop), state != "DC") |> 
+  ggplot(aes(x = pct_non_citizens, y = n_part_pop)) +
+  geom_point() +
+  geom_smooth(
+    method = "glm",
+    method.args = list(family = "poisson"),
+    formula = "y ~ x"
+  ) +
+  geom_text_repel(aes(label = state)) +
+  labs(x = "Noncitizen Residents (%)",
+       y = "Number of participants per thousand inhabitants") +
+  theme_minimal()
+```
+
+## Governor Party
+
+```{r gov-party}
+ccc |> 
+  filter(!is.na(gov_party), !is.na(n_part_pop), state != "DC") |> 
+  ggplot(aes(x = gov_party, y = n_part_pop)) +
+  geom_boxplot() +
+  geom_point() +
+  geom_text_repel(aes(label = state)) +
+  labs(x = "Governor party",
+       y = "Number of participants per thousand inhabitants") +
+  theme_minimal()
+```
+
+## Correlation Matrix
+
+```{r cor}
+ccc |> 
+  select(n_part_pop, 
+         pct_trump, 
+         income, 
+         black, 
+         hispanic, 
+         non_citizens = pct_non_citizens, 
+         republican_gov = gov_party) |> 
+  mutate(republican_gov = as.numeric(republican_gov)) |> 
+  datasummary_correlation(coef_map = cm)
+
+```
+
+## Multivariate Analysis
+
+Results of a count model. Coefficients below zero indicate a negative effect. 
+
+```{r multivariate}
+model <- glm(n_part ~ 
+               pct_trump + 
+               income + 
+               black +
+               hispanic + 
+               pct_non_citizens + 
+               gov_party +
+               offset(log(pop)), 
+             data = filter(ccc), 
+             family = poisson)
+
+cm <- c('pct_trump'    = 'Trump support (%), 2024 election',
+        'income' = "Annual median income",
+        'black' = "Black residents (%)",
+        'hispanic' = "Hispanic residents (%)",
+        'pct_non_citizens' = "Noncitizen Residents (%)",
+        'gov_partyRepublican' = "Republican governor")
+
+modelplot(model, coef_map = cm) +
+   geom_vline(xintercept = 0, color = "red", linetype = "dashed")
+```
