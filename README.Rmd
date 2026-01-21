@@ -11,11 +11,14 @@ knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 
 This project uses data from the Crowd Counting Consortium (CCC) to analyze protests against Trump in 2025 (from January 1st, 2025 to October 31st, 2025).
 
-```{r load-libs}
+```{r load-libs, include=FALSE}
+Sys.setlocale("LC_TIME", "C")
 library(dplyr)
 library(ggplot2)
 library(ggrepel)
 library(lubridate)
+library(MASS)
+library(marginaleffects)
 library(modelsummary)
 ```
 
@@ -26,9 +29,38 @@ ccc_states <- readRDS("data/ccc_states.rds") |>
   filter(!(state %in% c("DC", "PR")))
 ```
 
-## Protests over Time
+## Trends over Time
 
-```{r time-trend}
+### Figure 1
+
+```{r time-trend-events}
+data_plot <- ccc_events |> 
+  mutate(month = month(date)) |> 
+  group_by(month, date) |> 
+  summarize(n = n()) |> 
+  mutate(label = case_match(date,
+                            as.Date("2025-10-18") ~ "No Kings 2.0 (Oct 18) → ",
+                            as.Date("2025-04-05") ~ "Hands Off (Apr 5)→ ")) |> 
+  arrange(desc(n)) |> 
+  group_by(month) |> 
+  mutate(avg_n = sum(n) / n())
+
+data_plot |> 
+  ggplot(aes(x = date, y = n, label = label)) +
+  geom_col() +
+  geom_line(aes(y = avg_n), color = "red") +
+  geom_text(hjust = 1, vjust = 0.5) +
+  labs(title = "Number of Events per Day",
+       x = "Date",
+       y = "Number of events per day",
+       caption = "Note: The red line shows the average daily number of events per month.") + 
+  theme_minimal() +
+  theme(legend.title=element_blank()) 
+```
+
+### Figure 2
+
+```{r time-trend-part}
 data_plot <- ccc_events |> 
   mutate(month = month(date)) |> 
   group_by(month, date) |> 
@@ -43,19 +75,48 @@ data_plot <- ccc_events |>
 data_plot |> 
   ggplot(aes(x = date, y = n_part, label = label)) +
   geom_col() +
-  geom_line(aes(y = avg_n_part, color = "Average daily number\nof participants per month\n(in thousands)")) +
+  geom_line(aes(y = avg_n_part), color = "red") +
   geom_text(hjust = 1, vjust = 0.5) +
-  labs(x = "Date",
-       y = "Number of participants per day\n(in thousands)") + 
+  labs(title = "Number of Participants per Day",
+       subtitle = "In thousands",
+       x = "Date",
+       y = "Number of participants per day\n(in thousands)",
+       caption = "Note: The red line shows the average daily number of participants per month (in thousands).") + 
   theme_minimal() +
   theme(legend.title=element_blank()) 
 ```
 
+### Figure 3
 
+```{r time-trend-violence}
+data_plot <- ccc_events |> 
+  mutate(month = month(date),
+         violence = if_else(property_damage_any == 1 | police_casualties_any == 1,
+                           "Violent",
+                           "Nonviolent"),
+         violent = factor(violence)) |> 
+  group_by(month, violence) |> 
+  summarize(n = n()) |> 
+  mutate(share = (n/sum(n)) * 100) |> 
+  filter(violence == "Violent")
 
-## Bivariate Relationships
+data_plot |> 
+  mutate(month = factor(month, levels = 1:12, labels = month.abb),
+         label = sprintf("%.2f", share)) |> 
+  ggplot(aes(x = month, y = share, label = label)) +
+  geom_col() +
+  geom_text(vjust = -0.5) +
+  scale_y_continuous(limits = c(0, 100)) +
+  labs(title = "Percentage of Violent Protest Events", 
+       subtitle = "By month",
+       x = "Month",
+       y = "Percentage of violent protests events") +
+  theme_minimal()
+```
 
-### Support for Trump (%), 2024 presidential election
+## Geography of the Protests: Bivariate Relationships
+
+### Figure 4
 
 ```{r trump-support}
 ccc_states|> 
@@ -68,12 +129,14 @@ ccc_states|>
     formula = "y ~ x"
   ) +
   geom_text_repel(aes(label = state)) +
-  labs(x = "Support for Trump (%), 2024 presidential election",
+  labs(title = "Number of Participants by Support for Trump in the 2024 Presidential Election", 
+       subtitle = "By state, per thousand inhabitants",
+       x = "Support for Trump (%), 2024 presidential election",
        y = "Number of participants per thousand inhabitants") +
   theme_minimal()
 ```
 
-### Median Annual Household Income
+### Figure 5
 
 ```{r income}
 ccc_states|> 
@@ -86,12 +149,14 @@ ccc_states|>
     formula = "y ~ x"
   ) +
   geom_text_repel(aes(label = state)) +
-  labs(x = "Median annual household income (in 1,000$)",
+  labs(title = "Number of Participants by Median Annual Household Income", 
+       subtitle = "By state, per thousand inhabitants",
+       x = "Median annual household income (in 1,000$)",
        y = "Number of participants per thousand inhabitants") +
   theme_minimal()
 ```
 
-### Percentage of Black Residents
+### Figure 6
 
 ```{r black}
 ccc_states|> 
@@ -104,12 +169,14 @@ ccc_states|>
     formula = "y ~ x"
   ) +
   geom_text_repel(aes(label = state)) +
-  labs(x = "Percentage of Black Residents",
+  labs(title = "Number of Participants by Percentage of Black Residents", 
+       subtitle = "By state, per thousand inhabitants",
+       x = "Percentage of Black residents",
        y = "Number of participants per thousand inhabitants") +
   theme_minimal()
 ```
 
-### Percentage of Hispanic Residents
+### Figure 7
 
 ```{r hispanic}
 ccc_states|> 
@@ -122,12 +189,14 @@ ccc_states|>
     formula = "y ~ x"
   ) +
   geom_text_repel(aes(label = state)) +
-  labs(x = "Percentage of Hispanic Residents",
+  labs(title = "Number of Participants by Percentage of Hispanic Residents", 
+       subtitle = "By state, per thousand inhabitants",
+       x = "Percentage of Hispanic Residents",
        y = "Number of participants per thousand inhabitants") +
   theme_minimal()
 ```
 
-## Percentage of Noncitizen Residents
+### Figure 8
 
 ```{r non-citizens}
 ccc_states|> 
@@ -140,64 +209,62 @@ ccc_states|>
     formula = "y ~ x"
   ) +
   geom_text_repel(aes(label = state)) +
-  labs(x = "Noncitizen Residents (%)",
+  labs(title = "Number of Participants by Percentage of Noncitizen Residents", 
+       subtitle = "By state, per thousand inhabitants",
+       x = "Percentage of noncitizen residents",
        y = "Number of participants per thousand inhabitants") +
   theme_minimal()
 ```
 
-## Governor Party
+### Figure 9
 
 ```{r gov-party}
 ccc_states|> 
   filter(!is.na(gov_party), !is.na(n_part_pop), state != "DC") |> 
   ggplot(aes(x = gov_party, y = n_part_pop)) +
   geom_boxplot() +
-  geom_point() +
+  geom_dotplot(binaxis = "y", stackdir = "centerwhole", size = 0.5) +
   geom_text_repel(aes(label = state)) +
-  labs(x = "Governor party",
-       y = "Number of participants per thousand inhabitants") +
+  labs(title = "Number of Participants by Party of the Governor", 
+       subtitle = "By state, per thousand inhabitants",
+       x = "Governor party",
+       y = "Number of participants per thousand inhabitants",
+       caption = "Note: The center of the boxplot is the median; the lower and upper hinges represent the 25th and 75th percentiles.") +
   theme_minimal()
 ```
 
-## Correlation Matrix
+## Geography of the Protests: Multivariate Analysis
 
-```{r cor}
-ccc_states|> 
-  select(n_part_pop, 
-         pct_trump, 
-         income, 
-         black, 
-         hispanic, 
-         non_citizens = pct_non_citizens, 
-         republican_gov = gov_party) |> 
-  mutate(republican_gov = as.numeric(republican_gov)) |> 
-  datasummary_correlation(coef_map = cm)
-
-```
-
-## Multivariate Analysis
+### Figure 10
 
 Results of a count model. Coefficients below zero indicate a negative effect. 
 
 ```{r multivariate}
-model <- glm(n_part ~ 
-               pct_trump + 
-               income + 
-               black +
-               hispanic + 
-               pct_non_citizens + 
-               gov_party +
-               offset(log(pop)), 
-             data = ccc_states, 
-             family = poisson)
+model <- glm.nb(
+  n_part ~ 
+    pct_trump + 
+    income + 
+    black +
+    hispanic + 
+    pct_non_citizens + 
+    gov_party +
+    offset(log(pop)),
+  data = ccc_states
+)
+
+mfx <- avg_comparisons(model)
 
 cm <- c('pct_trump'    = 'Trump support (%), 2024 election',
         'income' = "Annual median income",
         'black' = "Black residents (%)",
         'hispanic' = "Hispanic residents (%)",
         'pct_non_citizens' = "Noncitizen Residents (%)",
-        'gov_partyRepublican' = "Republican governor")
+        'gov_party' = "Republican governor")
 
-modelplot(model, coef_map = cm) +
-   geom_vline(xintercept = 0, color = "red", linetype = "dashed")
+modelplot(mfx, coef_map = cm) +
+  geom_vline(xintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Effects of different variables",
+       subtitle = "All things being equal",
+       x = "Expected effect of one-unit change\n(in thousands of inhabitants, with 95% confidence intervals)",
+       caption = "Note: When the confidence interval overlaps with zero, the effect is not statistically significant.")
 ```
