@@ -49,13 +49,15 @@ claims <- paste(
 #   sep = "|"
 # )
 
-ccc_against_trump <- ccc_raw |> 
+ccc_events <- ccc_raw |> 
+  mutate(date = as.Date(date, format = "%m/%d/%Y")) |> 
   filter(str_detect(claims_summary, claims)) 
 
-ccc_states <- ccc_against_trump |> 
+ccc_states <- ccc_events |> 
+  filter(!is.na(state) & state != "or") |> 
   group_by(state) |> 
   summarize(n_events = n(),
-            n_part = sum(size_mean, na.rm = TRUE))
+            n_part = sum(size_mean, na.rm = TRUE)) 
 
 # American Presidency Project ---------------------------------------------
 
@@ -154,17 +156,18 @@ ccc_states_merged <- ccc_states |>
 
 # Save --------------------------------------------------------------------
 
-saveRDS(ccc_states_merged, file = "data/ccc_states_merged.rds")
+saveRDS(ccc_events, file = "data/ccc_events.rds")
+saveRDS(ccc_states_merged, file = "data/ccc_states.rds")
 
 
 # Export subsample --------------------------------------------------------
 
 set.seed(123)
 
-ccc_sub <- ccc_against_trump |>
+ccc_sub <- ccc_events |>
   filter(!is.na(claims_verbatim) & !is.na(title)) |> 
   mutate(percentile = percent_rank(size_mean)) |>       # 1. Compute percentiles (0 to 1)
-  filter(percentile >= 0.9) |>                         # 2. Keep top 10%
+  filter(percentile >= 0.9) |>                          # 2. Keep top 10%
   slice_sample(n = 50)                                  # 3. Random sample of 50 rows
 
 write_csv(ccc_sub, file = "ccc_sub.csv")
