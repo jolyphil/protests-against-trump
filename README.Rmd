@@ -265,6 +265,6 @@ modelplot(mfx, coef_map = cm) +
   geom_vline(xintercept = 0, color = "red", linetype = "dashed") +
   labs(title = "Effects of different variables",
        subtitle = "All things being equal",
-       x = "Expected effect of one-unit change\n(in thousands of inhabitants, with 95% confidence intervals)",
+       x = "Expected effect of one-unit change\n(with 95% confidence intervals)",
        caption = "Note: When the confidence interval overlaps with zero, the effect is not statistically significant.")
 ```
