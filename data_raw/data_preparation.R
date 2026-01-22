@@ -165,9 +165,8 @@ saveRDS(ccc_states_merged, file = "data/ccc_states.rds")
 set.seed(123)
 
 ccc_sub <- ccc_events |>
-  filter(!is.na(claims_verbatim) & !is.na(title)) |> 
-  mutate(percentile = percent_rank(size_mean)) |>       # 1. Compute percentiles (0 to 1)
-  filter(percentile >= 0.9) |>                          # 2. Keep top 10%
-  slice_sample(n = 50)                                  # 3. Random sample of 50 rows
+  filter(date == as.Date("2025-10-18") & !is.na(claims_verbatim) & !is.na(title)) |> 
+  arrange(desc(size_mean)) |> 
+  slice_head(n = 20)
 
 write_csv(ccc_sub, file = "ccc_sub.csv")
