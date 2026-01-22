@@ -1,4 +1,4 @@
-Protests against Trump, January 1st, 2025 to May 31st, 2025
+Protests against Trump, January 1st, 2025 to October 31st, 2025
 ================
 Philippe Joly
 2026-01-22

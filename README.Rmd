@@ -1,5 +1,5 @@
 ---
-title: "Protests against Trump, January 1st, 2025 to May 31st, 2025"
+title: "Protests against Trump, January 1st, 2025 to October 31st, 2025"
 author: "Philippe Joly"
 date: "`r Sys.Date()`"
 output: github_document
